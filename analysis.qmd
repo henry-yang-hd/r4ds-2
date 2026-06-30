@@ -2,5 +2,96 @@
 title: "Analyzing US Births and Basketball Recruits"
 author: "Henry Yang"
 format: html
+execute:
+  echo: false
 ---
 
+```{r}
+#| message: false
+library(tidyverse)
+library(readxl)
+```
+
+```{r}
+births_tibble <- read_excel("data/us_births_1994_2014.xlsx") |>
+  mutate(day_of_week = factor(day_of_week,
+                              levels = c("Sun", "Mon", "Tues", "Wed", "Thurs", "Fri", "Sat"),
+                              ordered = TRUE))
+```
+
+```{r}
+births_tibble |>
+  group_by(month, date_of_month) |>
+  summarise(mean_births = mean(births), .groups = "drop") |>
+  ggplot(aes(x = date_of_month, y = month, fill = mean_births)) +
+    geom_tile() +
+    scale_y_reverse(breaks = 1:12, labels = month.abb) +
+    scale_fill_viridis_c() +
+    labs(x = "Date of Month", y = "Month", fill = "Mean Births")
+
+christmas_data <- births_tibble |>
+  filter(month == 12, date_of_month %in% c(20:25, 27:30)) |>
+  group_by(year) |>
+  summarise(
+    dec25_births    = sum(births[date_of_month == 25]),
+    baseline_births = mean(births[date_of_month != 25]),
+    pct_of_baseline = dec25_births / baseline_births * 100,
+    dec25_weekday   = day_of_week[date_of_month == 25],
+    .groups = "drop"
+  )
+
+summary(christmas_data)
+
+christmas_data |>
+  ggplot(aes(x = year, y = pct_of_baseline, color = dec25_weekday)) +
+    geom_line(color = "grey60") +
+    geom_point(size = 3) +
+    labs(
+      title    = "Fewer Babies Born on Christmas Day",
+      subtitle = "December 25 births as a percentage of the average for surrounding days (Dec 20–24, 27–30)",
+      x        = "Year",
+      y        = "Dec 25 Births (% of Baseline)",
+      color    = "Day of Week",
+      caption  = "Source: US Births 1994–2014 (CDC / FiveThirtyEight)"
+    )
+```
+
+```{r}
+births_model <- lm(births ~ factor(year) + factor(month) + day_of_week,
+                   data = births_tibble)
+
+summary(births_model)$r.squared
+
+births_adjusted <- births_tibble |>
+  mutate(pct_resid = residuals(births_model) / mean(births) * 100)
+
+calendar_resid <- births_adjusted |>
+  filter(!(month == 2 & date_of_month == 29)) |>
+  group_by(month, date_of_month) |>
+  summarise(mean_pct_resid = mean(pct_resid), .groups = "drop") |>
+  mutate(date = as.Date(paste(2001, month, date_of_month, sep = "-")))
+```
+
+```{r}
+holidays <- tibble(
+  date  = as.Date(c("2001-01-01", "2001-07-04", "2001-11-22", "2001-12-25")),
+  label = c("New Year's", "Independence Day", "Thanksgiving", "Christmas")
+) |>
+  left_join(calendar_resid, by = "date")
+
+calendar_resid |>
+  ggplot(aes(x = date, y = mean_pct_resid)) +
+    geom_line(color = "steelblue") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+    geom_point(data = holidays, color = "firebrick", size = 2) +
+    geom_text(data = holidays, aes(label = label),
+              vjust = 2, size = 3, color = "firebrick") +
+    scale_x_date(date_labels = "%b", date_breaks = "1 month") +
+    labs(
+      title    = "Holiday Dips in US Birth Rates",
+      subtitle = "Residuals after adjusting for year, month, and day-of-week effects",
+      x        = NULL,
+      y        = "Mean % Deviation from Expected Births",
+      caption  = "Source: US Births 1994\u20132014 (CDC / FiveThirtyEight)"
+    )
+```
