@@ -1,25 +1,25 @@
----
-title: "Analyzing US Births and Basketball Recruits"
-author: "Henry Yang"
-format: html
-execute:
-  echo: false
----
-
-```{r}
+#
+#
+#
+#
+#
+#
+#
+#
+#
 #| message: false
 library(tidyverse)
 library(readxl)
-```
-
-```{r}
+#
+#
+#
 births_tibble <- read_excel("data/us_births_1994_2014.xlsx") |>
   mutate(day_of_week = factor(day_of_week,
                               levels = c("Sun", "Mon", "Tues", "Wed", "Thurs", "Fri", "Sat"),
                               ordered = TRUE))
-```
-
-```{r}
+#
+#
+#
 births_tibble |>
   group_by(month, date_of_month) |>
   summarise(mean_births = mean(births), .groups = "drop") |>
@@ -54,9 +54,9 @@ christmas_data |>
       color    = "Day of Week",
       caption  = "Source: US Births 1994–2014 (CDC / FiveThirtyEight)"
     )
-```
-
-```{r}
+#
+#
+#
 births_model <- lm(births ~ factor(year) + factor(month) + day_of_week,
                    data = births_tibble)
 
@@ -70,9 +70,9 @@ calendar_resid <- births_adjusted |>
   group_by(month, date_of_month) |>
   summarise(mean_pct_resid = mean(pct_resid), .groups = "drop") |>
   mutate(date = as.Date(paste(2001, month, date_of_month, sep = "-")))
-```
-
-```{r}
+#
+#
+#
 holidays <- tibble(
   date  = as.Date(c("2001-01-01", "2001-07-04", "2001-11-22", "2001-12-25")),
   label = c("New Year's", "Independence Day", "Thanksgiving", "Christmas")
@@ -94,9 +94,9 @@ calendar_resid |>
       y        = "Mean % Deviation from Expected Births",
       caption  = "Source: US Births 1994\u20132014 (CDC / FiveThirtyEight)"
     )
-```
-
-```{r}
+#
+#
+#
 #| cache: true
 basketball_tibble <- read_excel("data/nba_recruits.xlsx") |>
   mutate(
@@ -109,22 +109,22 @@ basketball_tibble <- read_excel("data/nba_recruits.xlsx") |>
   )
 
 basketball_tibble
-```
-
-```{r}
+#
+#
+#
 basketball_tibble |>
-  filter(!is.na(rank), !is.na(top_mean_wa)) |>
-  ggplot(aes(x = rank, y = top_mean_wa, color = tier)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE) +
-  geom_text(
-    data = . %>% filter(name %in% c("LeBron James", "Kevin Durant", "Stephen Curry", "Giannis Antetokounmpo")),
-    aes(label = name),
-    hjust = -0.1, vjust = 0.5, size = 3
-  ) +
+  filter(recruit_group != "Outside top 100") |>
+  count(recruit_group, tier) |>
+  group_by(recruit_group) |>
+  mutate(proportion = n / sum(n)) |>
+  ggplot(aes(y = recruit_group, x = proportion, fill = tier)) +
+  geom_col(position = "fill") +
   labs(
-    x = "Recruit Rank",
-    y = "Top Mean Win Shares per 48 Minutes",
-    color = "Career Tier"
+    x = "Proportion of Players",
+    y = "Recruit Group",
+    fill = "Career Tier"
   )
-```
+#
+#
+#
+#
